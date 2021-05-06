@@ -11,3 +11,11 @@ code {
     font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+.btn-primary {
+    background-color: darkmagenta !important;
+}
+
+h2 {
+    color: darkmagenta;
+}
