@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import logo from './logo.png';
 import './App.css';
 import {Button, Form, FormControl, FormGroup, FormLabel, InputGroup, Spinner} from 'react-bootstrap';
@@ -10,6 +10,7 @@ class App extends React.Component<{},
     loading: boolean;
     startBlock: number;
     endBlock: number;
+    latestBlock: number;
     endPoint: string;
     events: Array<object>;
   }> {
@@ -17,56 +18,43 @@ class App extends React.Component<{},
     loading: false,
     startBlock: 0,
     endBlock: 0,
+    latestBlock: 0,
     endPoint: "rpc.polkadot.io",
     events: [{
-      blockNumber: undefined
+      blockNumber: undefined,
+      blockHash: undefined,
+      events: [{
+        eventName: undefined,
+        eventArgs: []
+      }],
     }],
   };
 
   handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    this.setState({loading: true});
+    this.setState({loading: true, events: []});
     console.log(`Querying for... ${this.state.startBlock} to ${this.state.endBlock} on ${this.state.endPoint}`);
     const wsProvider = new WsProvider(`wss://${this.state.endPoint}`);
     const api = await ApiPromise.create({provider: wsProvider});
 
-    // Retrieve the current block header
-    const startHdr = await api.rpc.chain.getBlockHash(this.state.startBlock);
-    const endHdr = await api.rpc.chain.getBlockHash(this.state.endBlock);
-    // https://polkadot.js.org/apps/?rpc=wss%3A%2F%2Frpc.polkadot.io#/explorer/query/0x38f3f6a3b13715cdfd95421859401bb41985d53a664e845d71f3240774a6ab41
-    const testHdr = await api.rpc.chain.getBlockHash(4816370);
-    const testHdrEnd = await api.rpc.chain.getBlockHash(4816373);
-
-    // retrieve the range of events
-    // const changes = await api.query.system.events.range([this.state.startBlock, this.state.endBlock]);
-    // const changes = await api.query.system.events.range([this.state.startBlock, this.state.endBlock]);
-
-
-    let startBlock = 4816370;
-    for (let currentBlock = 4816373; currentBlock > startBlock; currentBlock--) {
-      console.log(`results from block: ${currentBlock}`);
+    for (let currentBlock = this.state.endBlock; currentBlock >= this.state.startBlock; currentBlock--) {
+      console.log(`Results from block: ${currentBlock}`);
       const queryHdr = await api.rpc.chain.getBlockHash(currentBlock);
-      console.log(`results from header: ${queryHdr}`);
+      console.log(`Found header: ${queryHdr}`);
       const events = await api.query.system.events.at(queryHdr);
       const eventRecords = Array<object>();
       events.forEach((record) => {
         // Extract the phase, event and the event types
-        const { event, phase } = record;
+        const { event } = record;
         const types = event.typeDef;
-
-        // Show what we are busy with
-        console.log(`\t${event.section}:${event.method}:: (phase=${phase.toString()})`);
-        console.log(`\t\t${event.meta.documentation.toString()}`);
-
-        // Loop through each of the parameters, displaying the type and data
         const eventArgs = Array<string>();
         event.data.forEach((data, index) => {
-          console.log(`\t\t\t${types[index].type}: ${data.toString()}`);
           eventArgs.push(`${types[index].type}: ${data.toString()}`)
         });
         eventRecords.push({eventName: `${event.section}:${event.method}`, eventArgs});
       });
-      const eventRecord = {blockNumber: currentBlock, events: eventRecords}
+      const eventRecord = {blockNumber: currentBlock, blockHash: queryHdr.toString(), events: eventRecords}
+      console.log(JSON.stringify(eventRecord));
       this.setState({events: [...this.state.events, eventRecord]});
     }
 
@@ -88,13 +76,13 @@ class App extends React.Component<{},
   };
 
   componentDidMount = async () => {
-    this.setState({loading: true});
+    this.setState({loading: true, events: []});
     const wsProvider = new WsProvider(`wss://${this.state.endPoint}`);
     const api = await ApiPromise.create({provider: wsProvider});
     const lastHeader = await api.rpc.chain.getHeader();
     console.log(`Chain is at block: #${lastHeader.number}`);
     this.setState({startBlock: Number(lastHeader.number.unwrap().subn(5))});
-    this.setState({endBlock: Number(lastHeader.number.unwrap())});
+    this.setState({endBlock: Number(lastHeader.number.unwrap()), latestBlock: Number(lastHeader.number.unwrap())});
     this.setState({loading: false});
   };
 
@@ -113,7 +101,7 @@ class App extends React.Component<{},
           <Form onSubmit={this.handleSubmit}>
             <FormGroup>
               <FormLabel>Start block:</FormLabel>
-              <FormControl type="number" name="startBlock" value={this.state.startBlock} max={this.state.endBlock-1} onChange={this.handleChange}
+              <FormControl type="number" name="startBlock" value={this.state.startBlock} max={this.state.latestBlock-1} onChange={this.handleChange}
                            required/>
               <Form.Control.Feedback type="invalid">
                 Please provide a valid start block
@@ -122,7 +110,7 @@ class App extends React.Component<{},
             <FormGroup>
               <FormLabel>End block:</FormLabel>
               <InputGroup hasValidation>
-                <FormControl type="number" name="endBlock" value={this.state.endBlock} max={this.state.endBlock} onChange={this.handleChange}
+                <FormControl type="number" name="endBlock" value={this.state.endBlock} min={this.state.startBlock+1} max={this.state.latestBlock} onChange={this.handleChange}
                              required/>
                 <Form.Control.Feedback type="invalid">
                   Please provide a valid end block
@@ -154,11 +142,30 @@ class App extends React.Component<{},
         </section>
 
         <section className="block-details">
-          <div className="details">
-            {this.state.events.map((eventRecord, index) => {
-              return <p>{eventRecord.blockNumber}</p>
+            {this.state.events.map(eventRecord => {
+              return (
+                <div className="details" key={eventRecord.blockNumber}>
+                  <p className="block-number labels">Block Number</p>
+                  <p className="block-hash labels">Block Hash</p>
+                  <p className="block-number content">{eventRecord.blockNumber}</p>
+                  <p className="block-hash content">{eventRecord.blockHash}</p>
+                  <p className="event-name labels">Event Name</p>
+                  <p className="event-args labels">Event Arguments</p>
+                    {eventRecord.events.map(singleEvent => {
+                      return (
+                        <div className="block-events">
+                          <p className="event-name content">{singleEvent.eventName}</p>
+                            {singleEvent.eventArgs.map(arg => {
+                              return (
+                                <p className="event-args content">{arg}</p>
+                              );
+                            })}
+                        </div>
+                      );
+                    })}
+                </div>
+              );
             })}
-          </div>
         </section>
       </div>
     );

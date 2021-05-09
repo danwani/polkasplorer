@@ -1,8 +1,7 @@
 .App {
     text-align: center;
     min-height: 100vh;
-    color: white;
-    background-color: #282c34;
+    color: black;
 }
 
 .App-logo {
@@ -52,7 +51,42 @@
 }
 
 .details {
-    min-height: 300px;
+    text-align: left;
+    margin-bottom: 20px;
+    overflow: auto;
+    border: 1px solid darkmagenta;
+}
+
+.labels {
+    font-size: x-small;
+    padding: 5px 0 0 5px;
+    margin: 0;
+}
+
+.block-events {
+    width: 100%;
+    overflow: auto;
+}
+
+.block-number.content, .block-hash.content {
+    font-size: larger;
+    border-bottom: 1px solid darkmagenta;
+    padding: 5px;
+    margin: 0;
+}
+
+.block-number, .event-name {
+    width: 20%;
+    float: left;
+}
+.event-name.content, .event-args.content {
+    padding: 5px;
+    margin: 0;
+}
+
+.block-hash, .event-args {
+    width: 80%;
+    float: right;
 }
 
 label {
