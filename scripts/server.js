@@ -2,9 +2,10 @@ const express = require('express');
 const path = require('path');
 const basicAuth = require('express-basic-auth')
 const app = express();
+const port = process.env.PORT || 3000;
 
 app.use(basicAuth({
-  users: {'admin': 'acalaforthewin'},
+  users: {'user': 'polkaforthewin'},
   challenge: true,
 }))
 
@@ -14,4 +15,4 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'build', 'index.html'));
 });
 
-app.listen(3000, () => console.log('Server started on port 3000'));
+app.listen(port, () => console.log(`Server started on port ${port}`));
